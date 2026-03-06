@@ -1,0 +1,6 @@
+build/
+build-ios/
+.DS_Store
+*.o
+*.a
+*.dylib
