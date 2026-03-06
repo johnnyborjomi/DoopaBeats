@@ -1,6 +1,7 @@
 #include "SongEditor.h"
 #include "PluginProcessor.h"
 #include "MidiImporter.h"
+#include "MidiDrumMap.h"
 #include "UserSongLibrary.h"
 
 // Part index mapping:
@@ -46,6 +47,20 @@ SongEditor::SongEditor(DoopaBeatsProcessor& p)
 
     deleteButton.onClick = [this] { onDeleteSong(); };
     addAndMakeVisible(deleteButton);
+
+    drumMapLabel.setText("MIDI Map:", juce::dontSendNotification);
+    drumMapLabel.setFont(juce::FontOptions(13.0f));
+    drumMapLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
+    addAndMakeVisible(drumMapLabel);
+
+    auto presets = getPresetMaps();
+    for (int i = 0; i < (int)presets.size(); i++)
+        drumMapSelector.addItem(juce::String(presets[i].name), i + 1);
+    drumMapSelector.setSelectedId(processor.getCurrentDrumMapIndex() + 1, juce::dontSendNotification);
+    drumMapSelector.onChange = [this] {
+        processor.setDrumMapIndex(drumMapSelector.getSelectedId() - 1);
+    };
+    addAndMakeVisible(drumMapSelector);
 
     viewport.setViewedComponent(&partContainer, false);
     viewport.setScrollBarsShown(true, false);
@@ -274,7 +289,9 @@ void SongEditor::onImportMidi(int partIndex) {
             auto& songs = processor.getSongs();
             auto& song = songs[currentEditIndex];
 
-            Pattern pattern = MidiImporter::importFromFile(file);
+            ImportSettings settings;
+            settings.drumMap = &processor.getCurrentDrumMap();
+            Pattern pattern = MidiImporter::importFromFile(file, settings);
             if (pattern.hits.empty()) return;
 
             applyPatternToSlot(song, partIndex, pattern);
@@ -329,6 +346,12 @@ void SongEditor::resized() {
     auto tempoRow = bounds.removeFromTop(28);
     tempoLabel.setBounds(tempoRow.removeFromLeft(50));
     tempoSlider.setBounds(tempoRow);
+    bounds.removeFromTop(8);
+
+    // Drum map selector row
+    auto mapRow = bounds.removeFromTop(28);
+    drumMapLabel.setBounds(mapRow.removeFromLeft(70));
+    drumMapSelector.setBounds(mapRow);
     bounds.removeFromTop(8);
 
     // Part grid in viewport

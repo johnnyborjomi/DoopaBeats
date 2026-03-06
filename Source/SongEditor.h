@@ -28,6 +28,9 @@ private:
     juce::TextButton saveButton   { "SAVE" };
     juce::TextButton deleteButton { "DELETE" };
 
+    juce::Label drumMapLabel;
+    juce::ComboBox drumMapSelector;
+
     struct PartRow {
         juce::String label;
         std::unique_ptr<juce::Label> partLabel;

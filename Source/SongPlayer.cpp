@@ -121,7 +121,19 @@ void SongPlayer::process(int numSamples, DrumEngine& engine) {
         triggerHitsAtStep(currentStep, engine, offsetInBlock);
 
         currentStep++;
-        if (currentStep >= currentPattern->numSteps) {
+
+        bool patternDone = (currentStep >= currentPattern->numSteps);
+
+        // At bar boundaries, act on pending requests immediately
+        // instead of waiting for the entire pattern to finish
+        if (!patternDone) {
+            int stepsPerBar = currentPattern->stepsPerBeat * currentPattern->beatsPerBar;
+            bool atBarBoundary = (stepsPerBar > 0) && (currentStep % stepsPerBar == 0);
+            if (atBarBoundary && (fillRequested || transitionRequested || stopRequested))
+                patternDone = true;
+        }
+
+        if (patternDone) {
             handlePatternEnd();
             if (state == State::Stopped) return;
             // After pattern change, recalculate sps in case stepsPerBeat changed

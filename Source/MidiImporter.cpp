@@ -87,6 +87,10 @@ Pattern MidiImporter::importFromFile(const juce::File& file, const ImportSetting
         if (quantizedStep >= maxSteps) continue;
 
         int note = msg.getNoteNumber();
+        if (settings.drumMap)
+            note = settings.drumMap->noteMap[note];
+        if (note <= 0) continue;  // discard unmapped notes
+
         float vel = msg.getFloatVelocity();
 
         auto key = std::make_pair(quantizedStep, note);

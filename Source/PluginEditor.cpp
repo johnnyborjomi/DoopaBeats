@@ -26,7 +26,7 @@ DoopaBeatsEditor::DoopaBeatsEditor(DoopaBeatsProcessor& p)
         juce::String prefix = (i >= builtInCount) ? "[User] " : "";
         songSelector.addItem(prefix + juce::String(songs[i].name), i + 1);
     }
-    songSelector.setSelectedId(1, juce::dontSendNotification);
+    songSelector.setSelectedId(processor.getCurrentSongIndex() + 1, juce::dontSendNotification);
     songSelector.onChange = [this] {
         int idx = songSelector.getSelectedId() - 1;
         processor.loadSong(idx);
@@ -68,6 +68,7 @@ DoopaBeatsEditor::DoopaBeatsEditor(DoopaBeatsProcessor& p)
     addAndMakeVisible(stopButton);
 
     auto showPlayView = [this] {
+        bool wasSongView = showingSongView;
         showingKitView = false;
         showingSongView = false;
         kitButton.setButtonText("KIT");
@@ -80,6 +81,21 @@ DoopaBeatsEditor::DoopaBeatsEditor(DoopaBeatsProcessor& p)
         stopButton.setVisible(true);
         tempoSlider.setVisible(true);
         tempoLabel.setVisible(true);
+
+        // Rebuild combo box after song editor (songs may have been added/deleted/renamed)
+        if (wasSongView) {
+            songSelector.clear(juce::dontSendNotification);
+            auto& songs = processor.getSongs();
+            int builtInCount = processor.getBuiltInSongCount();
+            for (int i = 0; i < (int)songs.size(); i++) {
+                if (i == builtInCount && builtInCount > 0)
+                    songSelector.addSeparator();
+                juce::String prefix = (i >= builtInCount) ? "[User] " : "";
+                songSelector.addItem(prefix + juce::String(songs[i].name), i + 1);
+            }
+            songSelector.setSelectedId(processor.getCurrentSongIndex() + 1, juce::dontSendNotification);
+        }
+
         resized();
         repaint();
     };
@@ -149,6 +165,11 @@ void DoopaBeatsEditor::timerCallback() {
     float currentTempo = processor.getSongPlayer().getTempo();
     tempoSlider.setValue(currentTempo, juce::dontSendNotification);
     tempoLabel.setText(juce::String((int)currentTempo) + " BPM", juce::dontSendNotification);
+
+    // Keep song selector in sync with processor
+    int expectedId = processor.getCurrentSongIndex() + 1;
+    if (songSelector.getSelectedId() != expectedId)
+        songSelector.setSelectedId(expectedId, juce::dontSendNotification);
 
     // Update tap button text based on state
     auto state = processor.getSongPlayer().getState();

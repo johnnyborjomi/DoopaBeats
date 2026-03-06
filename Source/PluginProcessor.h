@@ -6,6 +6,7 @@
 #include "PatternData.h"
 #include "DrumKit.h"
 #include "UserSongLibrary.h"
+#include "MidiDrumMap.h"
 
 class DoopaBeatsProcessor : public juce::AudioProcessor {
 public:
@@ -48,7 +49,13 @@ public:
     DrumKit& getCurrentKit() { return currentKit; }
     bool isUsingBuiltInKit() const { return usingBuiltIn; }
 
+    // Drum map presets
+    int getCurrentDrumMapIndex() const { return currentDrumMapIndex; }
+    void setDrumMapIndex(int index);
+    const MidiDrumMap& getCurrentDrumMap() const;
+
     // User song management
+    int getCurrentSongIndex() const { return currentSongIndex; }
     int getBuiltInSongCount() const { return builtInSongCount; }
     bool isUserSong(int index) const { return index >= builtInSongCount; }
     void addUserSong(const Song& song);
@@ -68,6 +75,9 @@ private:
     bool usingBuiltIn = true;
     juce::StringArray availableKitNames;
     double lastSampleRate = 44100.0;
+
+    std::vector<MidiDrumMap> drumMapPresets { getPresetMaps() };
+    int currentDrumMapIndex = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DoopaBeatsProcessor)
 };

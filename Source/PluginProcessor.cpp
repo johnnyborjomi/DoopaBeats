@@ -80,6 +80,17 @@ juce::StringArray DoopaBeatsProcessor::getAvailableKits() const {
     return availableKitNames;
 }
 
+// ─── Drum Map Presets ─────────────────────────────────────────
+
+void DoopaBeatsProcessor::setDrumMapIndex(int index) {
+    if (index >= 0 && index < (int)drumMapPresets.size())
+        currentDrumMapIndex = index;
+}
+
+const MidiDrumMap& DoopaBeatsProcessor::getCurrentDrumMap() const {
+    return drumMapPresets[currentDrumMapIndex];
+}
+
 // ─── User Song Management ─────────────────────────────────────
 
 void DoopaBeatsProcessor::addUserSong(const Song& song) {
@@ -114,6 +125,7 @@ void DoopaBeatsProcessor::getStateInformation(juce::MemoryBlock& destData) {
     state.setProperty("kitName", currentKitName, nullptr);
     state.setProperty("usingBuiltIn", usingBuiltIn, nullptr);
     state.setProperty("songIndex", currentSongIndex, nullptr);
+    state.setProperty("drumMapIndex", currentDrumMapIndex, nullptr);
 
     // Store user song name for identification on reload
     if (currentSongIndex >= builtInSongCount && currentSongIndex < (int)songs.size())
@@ -153,6 +165,8 @@ void DoopaBeatsProcessor::setStateInformation(const void* data, int sizeInBytes)
         loadBuiltInKit();
     else
         loadDrumKit(kitN);
+
+    setDrumMapIndex((int)state.getProperty("drumMapIndex", 0));
 }
 
 juce::AudioProcessorEditor* DoopaBeatsProcessor::createEditor() {
