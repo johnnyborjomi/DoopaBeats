@@ -6,6 +6,11 @@ DoopaBeatsProcessor::DoopaBeatsProcessor()
                      .withOutput("Output", juce::AudioChannelSet::stereo(), true))
 {
     songs = BuiltInSongs::getAllSongs();
+    builtInSongCount = (int)songs.size();
+
+    // Load user songs from disk
+    refreshUserSongs();
+
     if (!songs.empty())
         songPlayer.loadSong(songs[0]);
 
@@ -75,11 +80,44 @@ juce::StringArray DoopaBeatsProcessor::getAvailableKits() const {
     return availableKitNames;
 }
 
+// ─── User Song Management ─────────────────────────────────────
+
+void DoopaBeatsProcessor::addUserSong(const Song& song) {
+    songs.push_back(song);
+}
+
+void DoopaBeatsProcessor::removeUserSong(int index) {
+    if (index < builtInSongCount || index >= (int)songs.size()) return;
+    songs.erase(songs.begin() + index);
+}
+
+void DoopaBeatsProcessor::updateUserSong(int index, const Song& song) {
+    if (index < builtInSongCount || index >= (int)songs.size()) return;
+    songs[index] = song;
+}
+
+void DoopaBeatsProcessor::refreshUserSongs() {
+    // Remove existing user songs
+    songs.resize(builtInSongCount);
+
+    // Load from disk
+    auto files = UserSongLibrary::findAllSongFiles();
+    for (auto& f : files) {
+        Song song = UserSongLibrary::loadSong(f);
+        if (!song.name.empty())
+            songs.push_back(song);
+    }
+}
+
 void DoopaBeatsProcessor::getStateInformation(juce::MemoryBlock& destData) {
     juce::ValueTree state("DoopaBeatsState");
     state.setProperty("kitName", currentKitName, nullptr);
     state.setProperty("usingBuiltIn", usingBuiltIn, nullptr);
     state.setProperty("songIndex", currentSongIndex, nullptr);
+
+    // Store user song name for identification on reload
+    if (currentSongIndex >= builtInSongCount && currentSongIndex < (int)songs.size())
+        state.setProperty("userSongName", juce::String(songs[currentSongIndex].name), nullptr);
 
     auto xml = state.createXml();
     if (xml)
@@ -94,6 +132,18 @@ void DoopaBeatsProcessor::setStateInformation(const void* data, int sizeInBytes)
     if (!state.isValid()) return;
 
     int songIdx = state.getProperty("songIndex", 0);
+    juce::String userSongName = state.getProperty("userSongName", "").toString();
+
+    // Try to find user song by name if index is out of range
+    if (songIdx >= (int)songs.size() && userSongName.isNotEmpty()) {
+        for (int i = builtInSongCount; i < (int)songs.size(); i++) {
+            if (juce::String(songs[i].name) == userSongName) {
+                songIdx = i;
+                break;
+            }
+        }
+    }
+
     loadSong(songIdx);
 
     bool builtIn = state.getProperty("usingBuiltIn", true);

@@ -5,6 +5,7 @@
 #include "SongPlayer.h"
 #include "PatternData.h"
 #include "DrumKit.h"
+#include "UserSongLibrary.h"
 
 class DoopaBeatsProcessor : public juce::AudioProcessor {
 public:
@@ -47,10 +48,19 @@ public:
     DrumKit& getCurrentKit() { return currentKit; }
     bool isUsingBuiltInKit() const { return usingBuiltIn; }
 
+    // User song management
+    int getBuiltInSongCount() const { return builtInSongCount; }
+    bool isUserSong(int index) const { return index >= builtInSongCount; }
+    void addUserSong(const Song& song);
+    void removeUserSong(int index);
+    void updateUserSong(int index, const Song& song);
+    void refreshUserSongs();
+
 private:
     DrumEngine drumEngine;
     SongPlayer songPlayer;
     std::vector<Song> songs;
+    int builtInSongCount = 0;
     int currentSongIndex = 0;
 
     DrumKit currentKit;

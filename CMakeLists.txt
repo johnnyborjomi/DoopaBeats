@@ -28,6 +28,9 @@ target_sources(DoopaBeats PRIVATE
     Source/SongPlayer.cpp
     Source/DrumKit.cpp
     Source/DrumKitEditor.cpp
+    Source/MidiImporter.cpp
+    Source/UserSongLibrary.cpp
+    Source/SongEditor.cpp
 )
 
 target_link_libraries(DoopaBeats PRIVATE

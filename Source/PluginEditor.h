@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 #include "DrumKitEditor.h"
+#include "SongEditor.h"
 
 class DoopaBeatsEditor : public juce::AudioProcessorEditor,
                          private juce::Timer {
@@ -23,13 +24,16 @@ private:
     juce::TextButton transButton   { "TRANSITION" };
     juce::TextButton stopButton    { "STOP" };
     juce::TextButton kitButton     { "KIT" };
+    juce::TextButton songButton    { "SONG" };
     juce::Slider     tempoSlider;
     juce::Label      tempoLabel;
     juce::ComboBox   songSelector;
 
-    // Kit editor overlay
+    // Editor overlays
     DrumKitEditor kitEditor;
+    SongEditor songEditor;
     bool showingKitView = false;
+    bool showingSongView = false;
 
     // Display state
     int lastBeat = -1;

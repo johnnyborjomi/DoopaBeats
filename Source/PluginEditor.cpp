@@ -13,18 +13,25 @@ namespace Theme {
 }
 
 DoopaBeatsEditor::DoopaBeatsEditor(DoopaBeatsProcessor& p)
-    : AudioProcessorEditor(&p), processor(p), kitEditor(p)
+    : AudioProcessorEditor(&p), processor(p), kitEditor(p), songEditor(p)
 {
-    setSize(500, 720);
+    setSize(750, 620);
 
     // Song selector
     auto& songs = processor.getSongs();
-    for (int i = 0; i < (int)songs.size(); i++)
-        songSelector.addItem(songs[i].name, i + 1);
+    int builtInCount = processor.getBuiltInSongCount();
+    for (int i = 0; i < (int)songs.size(); i++) {
+        if (i == builtInCount && builtInCount > 0)
+            songSelector.addSeparator();
+        juce::String prefix = (i >= builtInCount) ? "[User] " : "";
+        songSelector.addItem(prefix + juce::String(songs[i].name), i + 1);
+    }
     songSelector.setSelectedId(1, juce::dontSendNotification);
     songSelector.onChange = [this] {
         int idx = songSelector.getSelectedId() - 1;
         processor.loadSong(idx);
+        if (showingSongView)
+            songEditor.syncToCurrentSong(idx);
     };
     addAndMakeVisible(songSelector);
 
@@ -60,27 +67,79 @@ DoopaBeatsEditor::DoopaBeatsEditor(DoopaBeatsProcessor& p)
     stopButton.onClick = [this] { processor.getSongPlayer().stopAction(); };
     addAndMakeVisible(stopButton);
 
-    kitButton.setColour(juce::TextButton::buttonColourId, Theme::accent);
-    kitButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-    kitButton.onClick = [this] {
-        showingKitView = !showingKitView;
-        kitButton.setButtonText(showingKitView ? "PLAY" : "KIT");
-        if (showingKitView)
-            kitEditor.refreshKitList();
-        kitEditor.setVisible(showingKitView);
-        songSelector.setVisible(!showingKitView);
-        tapButton.setVisible(!showingKitView);
-        transButton.setVisible(!showingKitView);
-        stopButton.setVisible(!showingKitView);
-        tempoSlider.setVisible(!showingKitView);
-        tempoLabel.setVisible(!showingKitView);
+    auto showPlayView = [this] {
+        showingKitView = false;
+        showingSongView = false;
+        kitButton.setButtonText("KIT");
+        songButton.setButtonText("SONG");
+        kitEditor.setVisible(false);
+        songEditor.setVisible(false);
+        songSelector.setVisible(true);
+        tapButton.setVisible(true);
+        transButton.setVisible(true);
+        stopButton.setVisible(true);
+        tempoSlider.setVisible(true);
+        tempoLabel.setVisible(true);
         resized();
         repaint();
     };
+
+    kitButton.setColour(juce::TextButton::buttonColourId, Theme::accent);
+    kitButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    kitButton.onClick = [this, showPlayView] {
+        if (showingKitView) {
+            showPlayView();
+        } else {
+            showingKitView = true;
+            showingSongView = false;
+            kitButton.setButtonText("PLAY");
+            songButton.setButtonText("SONG");
+            kitEditor.refreshKitList();
+            kitEditor.setVisible(true);
+            songEditor.setVisible(false);
+            songSelector.setVisible(false);
+            tapButton.setVisible(false);
+            transButton.setVisible(false);
+            stopButton.setVisible(false);
+            tempoSlider.setVisible(false);
+            tempoLabel.setVisible(false);
+            resized();
+            repaint();
+        }
+    };
     addAndMakeVisible(kitButton);
+
+    songButton.setColour(juce::TextButton::buttonColourId, Theme::accent);
+    songButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    songButton.onClick = [this, showPlayView] {
+        if (showingSongView) {
+            showPlayView();
+        } else {
+            showingSongView = true;
+            showingKitView = false;
+            songButton.setButtonText("PLAY");
+            kitButton.setButtonText("KIT");
+            songEditor.refreshSongList();
+            songEditor.syncToCurrentSong(songSelector.getSelectedId() - 1);
+            songEditor.setVisible(true);
+            kitEditor.setVisible(false);
+            songSelector.setVisible(false);
+            tapButton.setVisible(false);
+            transButton.setVisible(false);
+            stopButton.setVisible(false);
+            tempoSlider.setVisible(false);
+            tempoLabel.setVisible(false);
+            resized();
+            repaint();
+        }
+    };
+    addAndMakeVisible(songButton);
 
     kitEditor.setVisible(false);
     addAndMakeVisible(kitEditor);
+
+    songEditor.setVisible(false);
+    addAndMakeVisible(songEditor);
 
     startTimerHz(30);
 }
@@ -110,7 +169,7 @@ void DoopaBeatsEditor::paint(juce::Graphics& g) {
     g.setFont(juce::FontOptions(28.0f, juce::Font::bold));
     g.drawText("DoopaBeats", bounds.removeFromTop(50), juce::Justification::centred);
 
-    if (showingKitView) return;
+    if (showingKitView || showingSongView) return;
 
     auto& player = processor.getSongPlayer();
     int currentBeat = player.getCurrentBeat();
@@ -156,8 +215,11 @@ void DoopaBeatsEditor::resized() {
     // Title area (50px) is drawn in paint
     auto topArea = bounds.removeFromTop(50);
 
-    // KIT button in top-right corner
-    kitButton.setBounds(topArea.removeFromRight(60).withHeight(30).withY(topArea.getY() + 10));
+    // KIT and SONG buttons in top-right corner
+    auto btnArea = topArea.removeFromRight(130).withHeight(30).withY(topArea.getY() + 10);
+    songButton.setBounds(btnArea.removeFromRight(60));
+    btnArea.removeFromRight(8);
+    kitButton.setBounds(btnArea.removeFromRight(60));
 
     // Song selector
     topArea.removeFromTop(10);
@@ -166,6 +228,9 @@ void DoopaBeatsEditor::resized() {
     if (showingKitView) {
         bounds.removeFromTop(8);
         kitEditor.setBounds(bounds);
+    } else if (showingSongView) {
+        bounds.removeFromTop(8);
+        songEditor.setBounds(bounds);
     } else {
         bounds.removeFromTop(150); // space for part name + beat indicators
 
