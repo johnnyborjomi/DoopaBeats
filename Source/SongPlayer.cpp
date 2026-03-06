@@ -34,6 +34,10 @@ int SongPlayer::getCurrentBeat() const {
     return beat % currentPattern->beatsPerBar;
 }
 
+int SongPlayer::getStepsPerBeat() const {
+    return currentPattern ? currentPattern->stepsPerBeat : 4;
+}
+
 int SongPlayer::getBeatsPerBar() const {
     return currentPattern ? currentPattern->beatsPerBar : 4;
 }

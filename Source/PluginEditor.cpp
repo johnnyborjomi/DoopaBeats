@@ -174,37 +174,80 @@ void DoopaBeatsEditor::paint(juce::Graphics& g) {
     auto& player = processor.getSongPlayer();
     int currentBeat = player.getCurrentBeat();
     int beatsPerBar = player.getBeatsPerBar();
+    int stepsPerBeat = player.getStepsPerBeat();
+    int stepsPerBar = stepsPerBeat * beatsPerBar;
+    int currentStep = player.getCurrentStep();
+    int totalSteps = player.getTotalSteps();
     bool playing = player.isPlaying();
 
-    // ─── Part name ─────────────────────────────────────────
-    auto partArea = bounds.withHeight(40).withY(140);
+    int totalBars = (totalSteps > 0 && stepsPerBar > 0) ? totalSteps / stepsPerBar : 1;
+    int currentBar = (stepsPerBar > 0) ? currentStep / stepsPerBar : 0;
+
+    // ─── Part name + time signature ───────────────────────
+    auto infoArea = bounds.withHeight(30).withY(140);
+    int infoMargin = 40;
     g.setFont(juce::FontOptions(20.0f));
     g.setColour(Theme::textLight.withAlpha(0.8f));
-    g.drawText(player.getCurrentPartName(), partArea, juce::Justification::centred);
+    g.drawText(player.getCurrentPartName(),
+               infoArea.withTrimmedLeft(infoMargin), juce::Justification::centredLeft);
 
-    // ─── Beat indicators ───────────────────────────────────
-    int beatAreaY = 190;
-    int dotSize = 34;
-    int totalDotsWidth = beatsPerBar * dotSize + (beatsPerBar - 1) * 14;
-    int startX = (getWidth() - totalDotsWidth) / 2;
+    juce::String timeSig = juce::String(beatsPerBar) + "/4";
+    if (stepsPerBeat == 3)
+        timeSig += " swing";
+    g.setFont(juce::FontOptions(16.0f));
+    g.setColour(Theme::textLight.withAlpha(0.5f));
+    g.drawText(timeSig, infoArea.withTrimmedRight(infoMargin), juce::Justification::centredRight);
+
+    // ─── Bar rectangles ───────────────────────────────────
+    int barRowY = 178;
+    int barHeight = 30;
+    int barGap = 8;
+    int barCorner = 4;
+    int availWidth = getWidth() - 80;
+    int barWidth = std::min(120, (availWidth - (totalBars - 1) * barGap) / std::max(totalBars, 1));
+    int totalBarWidth = totalBars * barWidth + (totalBars - 1) * barGap;
+    int barStartX = (getWidth() - totalBarWidth) / 2;
+
+    for (int i = 0; i < totalBars; i++) {
+        int x = barStartX + i * (barWidth + barGap);
+        bool isActiveBar = playing && (i == currentBar);
+
+        g.setColour(isActiveBar ? Theme::beatOn : Theme::beatOff);
+        g.fillRoundedRectangle((float)x, (float)barRowY,
+                               (float)barWidth, (float)barHeight, (float)barCorner);
+
+        g.setColour(isActiveBar ? juce::Colours::black : Theme::textLight.withAlpha(0.4f));
+        g.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        g.drawText(juce::String(i + 1), x, barRowY, barWidth, barHeight,
+                   juce::Justification::centred);
+    }
+
+    // ─── Beat blocks within active bar ────────────────────
+    int beatRowY = 218;
+    int beatHeight = 34;
+    int beatGap = 8;
+    int beatCorner = 4;
+    int beatWidth = std::min(80, (availWidth - (beatsPerBar - 1) * beatGap) / std::max(beatsPerBar, 1));
+    int totalBeatWidth = beatsPerBar * beatWidth + (beatsPerBar - 1) * beatGap;
+    int beatStartX = (getWidth() - totalBeatWidth) / 2;
 
     for (int i = 0; i < beatsPerBar; i++) {
-        int x = startX + i * (dotSize + 14);
+        int x = beatStartX + i * (beatWidth + beatGap);
         bool isActive = playing && (i == currentBeat);
 
         if (isActive) {
-            g.setColour(Theme::beatOn.withAlpha(0.3f));
-            g.fillEllipse((float)(x - 5), (float)(beatAreaY - 5),
-                          (float)(dotSize + 10), (float)(dotSize + 10));
+            g.setColour(Theme::beatOn.withAlpha(0.25f));
+            g.fillRoundedRectangle((float)(x - 4), (float)(beatRowY - 4),
+                                   (float)(beatWidth + 8), (float)(beatHeight + 8), (float)(beatCorner + 2));
         }
 
         g.setColour(isActive ? Theme::beatOn : Theme::beatOff);
-        g.fillEllipse((float)x, (float)beatAreaY, (float)dotSize, (float)dotSize);
+        g.fillRoundedRectangle((float)x, (float)beatRowY,
+                               (float)beatWidth, (float)beatHeight, (float)beatCorner);
 
         g.setColour(isActive ? juce::Colours::black : Theme::textLight.withAlpha(0.4f));
         g.setFont(juce::FontOptions(15.0f, juce::Font::bold));
-        g.drawText(juce::String(i + 1),
-                   x, beatAreaY, dotSize, dotSize,
+        g.drawText(juce::String(i + 1), x, beatRowY, beatWidth, beatHeight,
                    juce::Justification::centred);
     }
 }

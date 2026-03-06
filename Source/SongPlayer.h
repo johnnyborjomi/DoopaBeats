@@ -32,6 +32,7 @@ public:
     int getTotalSteps() const { return currentPattern ? currentPattern->numSteps : 0; }
     int getCurrentBeat() const;
     int getBeatsPerBar() const;
+    int getStepsPerBeat() const;
     std::string getCurrentPartName() const;
     std::string getSongName() const { return currentSong.name; }
 
