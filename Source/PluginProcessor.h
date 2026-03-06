@@ -4,6 +4,7 @@
 #include "DrumEngine.h"
 #include "SongPlayer.h"
 #include "PatternData.h"
+#include "DrumKit.h"
 
 class DoopaBeatsProcessor : public juce::AudioProcessor {
 public:
@@ -28,19 +29,35 @@ public:
     const juce::String getProgramName(int) override { return {}; }
     void changeProgramName(int, const juce::String&) override {}
 
-    void getStateInformation(juce::MemoryBlock&) override {}
-    void setStateInformation(const void*, int) override {}
+    void getStateInformation(juce::MemoryBlock& destData) override;
+    void setStateInformation(const void* data, int sizeInBytes) override;
 
     // Public access for the editor
     SongPlayer& getSongPlayer() { return songPlayer; }
+    DrumEngine& getDrumEngine() { return drumEngine; }
     std::vector<Song>& getSongs() { return songs; }
     void loadSong(int index);
+
+    // Kit management
+    void loadDrumKit(const juce::String& kitName);
+    void loadBuiltInKit();
+    void refreshAvailableKits();
+    juce::StringArray getAvailableKits() const;
+    juce::String getCurrentKitName() const { return currentKitName; }
+    DrumKit& getCurrentKit() { return currentKit; }
+    bool isUsingBuiltInKit() const { return usingBuiltIn; }
 
 private:
     DrumEngine drumEngine;
     SongPlayer songPlayer;
     std::vector<Song> songs;
     int currentSongIndex = 0;
+
+    DrumKit currentKit;
+    juce::String currentKitName { "Built-In" };
+    bool usingBuiltIn = true;
+    juce::StringArray availableKitNames;
+    double lastSampleRate = 44100.0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DoopaBeatsProcessor)
 };

@@ -99,7 +99,7 @@ void SongPlayer::triggerHitsAtStep(int step, DrumEngine& engine, int sampleOffse
     if (!currentPattern) return;
     for (auto& hit : currentPattern->hits) {
         if (hit.step == step)
-            engine.trigger(hit.drum, hit.velocity, sampleOffset);
+            engine.trigger(hit.midiNote, hit.velocity, sampleOffset);
     }
 }
 

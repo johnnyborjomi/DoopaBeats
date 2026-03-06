@@ -1,4 +1,5 @@
 #include "DrumEngine.h"
+#include "DrumKit.h"
 #include <cmath>
 
 #ifndef M_PI
@@ -7,29 +8,67 @@
 
 void DrumEngine::prepare(double sampleRate, int /*blockSize*/) {
     currentSampleRate = sampleRate;
+    loadBuiltInKit();
+}
+
+void DrumEngine::loadBuiltInKit() {
+    juce::SpinLock::ScopedLockType sl(lock);
+
+    // Clear all voices
+    for (auto& v : voices) {
+        v.sample.setSize(0, 0);
+        v.playing = false;
+        v.gain = 1.0f;
+        v.panL = 1.0f;
+        v.panR = 1.0f;
+    }
+
     synthesizeAllSounds();
 
     // Panning: slight stereo spread
-    setPan(DrumType::Kick, 0.0f);
-    setPan(DrumType::Snare, 0.0f);
-    setPan(DrumType::ClosedHH, 0.3f);
-    setPan(DrumType::OpenHH, 0.35f);
-    setPan(DrumType::Clap, -0.05f);
-    setPan(DrumType::LowTom, -0.3f);
-    setPan(DrumType::Rimshot, 0.1f);
-    setPan(DrumType::Ride, 0.4f);
+    setPan(GM::Kick, 0.0f);
+    setPan(GM::Snare, 0.0f);
+    setPan(GM::ClosedHH, 0.3f);
+    setPan(GM::OpenHH, 0.35f);
+    setPan(GM::Clap, -0.05f);
+    setPan(GM::LowTom, -0.3f);
+    setPan(GM::SideStick, 0.1f);
+    setPan(GM::Ride1, 0.4f);
 }
 
-void DrumEngine::setPan(DrumType drum, float pan) {
-    auto& v = voices[(int)drum];
-    // Equal-power panning
-    float angle = (pan + 1.0f) * 0.25f * (float)M_PI;  // 0 to π/2
+void DrumEngine::loadKit(const DrumKit& kit) {
+    juce::SpinLock::ScopedLockType sl(lock);
+
+    // Clear all voices
+    for (auto& v : voices) {
+        v.sample.setSize(0, 0);
+        v.playing = false;
+        v.gain = 1.0f;
+        v.panL = 1.0f;
+        v.panR = 1.0f;
+    }
+
+    for (auto& [note, slot] : kit.getSlots()) {
+        if (!slot.loaded || note < 0 || note >= 128) continue;
+        auto& v = voices[note];
+        v.sample = slot.sample; // deep copy
+        v.gain = slot.gain;
+        setPan(note, slot.pan);
+    }
+}
+
+void DrumEngine::setPan(int midiNote, float pan) {
+    if (midiNote < 0 || midiNote >= 128) return;
+    auto& v = voices[midiNote];
+    float angle = (pan + 1.0f) * 0.25f * (float)M_PI;  // 0 to pi/2
     v.panL = std::cos(angle);
     v.panR = std::sin(angle);
 }
 
-void DrumEngine::trigger(DrumType drum, float velocity, int sampleOffset) {
-    auto& v = voices[(int)drum];
+void DrumEngine::trigger(int midiNote, float velocity, int sampleOffset) {
+    if (midiNote < 0 || midiNote >= 128) return;
+    auto& v = voices[midiNote];
+    if (v.sample.getNumSamples() == 0) return;
     v.position = 0;
     v.velocity = velocity;
     v.blockStartOffset = sampleOffset;
@@ -37,7 +76,12 @@ void DrumEngine::trigger(DrumType drum, float velocity, int sampleOffset) {
     v.justTriggered = true;
 }
 
+void DrumEngine::trigger(DrumType drum, float velocity, int sampleOffset) {
+    trigger(drumTypeToMidiNote(drum), velocity, sampleOffset);
+}
+
 void DrumEngine::renderBlock(juce::AudioBuffer<float>& buffer) {
+    juce::SpinLock::ScopedLockType sl(lock);
     int numSamples = buffer.getNumSamples();
     int numChannels = buffer.getNumChannels();
 
@@ -55,7 +99,7 @@ void DrumEngine::renderBlock(juce::AudioBuffer<float>& buffer) {
                 v.playing = false;
                 break;
             }
-            float s = src[v.position++] * v.velocity;
+            float s = src[v.position++] * v.velocity * v.gain;
             buffer.addSample(0, i, s * v.panL);
             if (numChannels > 1)
                 buffer.addSample(1, i, s * v.panR);
@@ -66,14 +110,14 @@ void DrumEngine::renderBlock(juce::AudioBuffer<float>& buffer) {
 // ─── Drum synthesis ───────────────────────────────────────────
 
 void DrumEngine::synthesizeAllSounds() {
-    synthesizeKick(voices[(int)DrumType::Kick].sample);
-    synthesizeSnare(voices[(int)DrumType::Snare].sample);
-    synthesizeClosedHH(voices[(int)DrumType::ClosedHH].sample);
-    synthesizeOpenHH(voices[(int)DrumType::OpenHH].sample);
-    synthesizeClap(voices[(int)DrumType::Clap].sample);
-    synthesizeLowTom(voices[(int)DrumType::LowTom].sample);
-    synthesizeRimshot(voices[(int)DrumType::Rimshot].sample);
-    synthesizeRide(voices[(int)DrumType::Ride].sample);
+    synthesizeKick(voices[GM::Kick].sample);
+    synthesizeSnare(voices[GM::Snare].sample);
+    synthesizeClosedHH(voices[GM::ClosedHH].sample);
+    synthesizeOpenHH(voices[GM::OpenHH].sample);
+    synthesizeClap(voices[GM::Clap].sample);
+    synthesizeLowTom(voices[GM::LowTom].sample);
+    synthesizeRimshot(voices[GM::SideStick].sample);
+    synthesizeRide(voices[GM::Ride1].sample);
 }
 
 void DrumEngine::synthesizeKick(juce::AudioBuffer<float>& buf) {

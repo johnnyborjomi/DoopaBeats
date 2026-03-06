@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
+#include "DrumKitEditor.h"
 
 class DoopaBeatsEditor : public juce::AudioProcessorEditor,
                          private juce::Timer {
@@ -21,9 +22,14 @@ private:
     juce::TextButton tapButton     { "TAP" };
     juce::TextButton transButton   { "TRANSITION" };
     juce::TextButton stopButton    { "STOP" };
+    juce::TextButton kitButton     { "KIT" };
     juce::Slider     tempoSlider;
     juce::Label      tempoLabel;
     juce::ComboBox   songSelector;
+
+    // Kit editor overlay
+    DrumKitEditor kitEditor;
+    bool showingKitView = false;
 
     // Display state
     int lastBeat = -1;

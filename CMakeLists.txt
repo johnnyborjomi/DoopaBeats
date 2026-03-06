@@ -26,6 +26,8 @@ target_sources(DoopaBeats PRIVATE
     Source/PluginEditor.cpp
     Source/DrumEngine.cpp
     Source/SongPlayer.cpp
+    Source/DrumKit.cpp
+    Source/DrumKitEditor.cpp
 )
 
 target_link_libraries(DoopaBeats PRIVATE

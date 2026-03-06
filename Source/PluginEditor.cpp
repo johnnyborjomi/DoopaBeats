@@ -13,9 +13,9 @@ namespace Theme {
 }
 
 DoopaBeatsEditor::DoopaBeatsEditor(DoopaBeatsProcessor& p)
-    : AudioProcessorEditor(&p), processor(p)
+    : AudioProcessorEditor(&p), processor(p), kitEditor(p)
 {
-    setSize(400, 560);
+    setSize(500, 720);
 
     // Song selector
     auto& songs = processor.getSongs();
@@ -39,7 +39,7 @@ DoopaBeatsEditor::DoopaBeatsEditor(DoopaBeatsProcessor& p)
     };
     addAndMakeVisible(tempoSlider);
 
-    tempoLabel.setFont(juce::FontOptions(18.0f));
+    tempoLabel.setFont(juce::FontOptions(20.0f));
     tempoLabel.setColour(juce::Label::textColourId, Theme::textLight);
     tempoLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(tempoLabel);
@@ -59,6 +59,28 @@ DoopaBeatsEditor::DoopaBeatsEditor(DoopaBeatsProcessor& p)
     stopButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     stopButton.onClick = [this] { processor.getSongPlayer().stopAction(); };
     addAndMakeVisible(stopButton);
+
+    kitButton.setColour(juce::TextButton::buttonColourId, Theme::accent);
+    kitButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    kitButton.onClick = [this] {
+        showingKitView = !showingKitView;
+        kitButton.setButtonText(showingKitView ? "PLAY" : "KIT");
+        if (showingKitView)
+            kitEditor.refreshKitList();
+        kitEditor.setVisible(showingKitView);
+        songSelector.setVisible(!showingKitView);
+        tapButton.setVisible(!showingKitView);
+        transButton.setVisible(!showingKitView);
+        stopButton.setVisible(!showingKitView);
+        tempoSlider.setVisible(!showingKitView);
+        tempoLabel.setVisible(!showingKitView);
+        resized();
+        repaint();
+    };
+    addAndMakeVisible(kitButton);
+
+    kitEditor.setVisible(false);
+    addAndMakeVisible(kitEditor);
 
     startTimerHz(30);
 }
@@ -83,34 +105,35 @@ void DoopaBeatsEditor::paint(juce::Graphics& g) {
     auto bounds = getLocalBounds();
     g.fillAll(Theme::bg);
 
-    auto& player = processor.getSongPlayer();
-    int currentBeat = player.getCurrentBeat();
-    int beatsPerBar = player.getBeatsPerBar();
-    bool playing = player.isPlaying();
-
     // ─── Title ─────────────────────────────────────────────
     g.setColour(Theme::textLight);
     g.setFont(juce::FontOptions(28.0f, juce::Font::bold));
     g.drawText("DoopaBeats", bounds.removeFromTop(50), juce::Justification::centred);
 
+    if (showingKitView) return;
+
+    auto& player = processor.getSongPlayer();
+    int currentBeat = player.getCurrentBeat();
+    int beatsPerBar = player.getBeatsPerBar();
+    bool playing = player.isPlaying();
+
     // ─── Part name ─────────────────────────────────────────
-    auto partArea = bounds.withHeight(40).withY(120);
+    auto partArea = bounds.withHeight(40).withY(140);
     g.setFont(juce::FontOptions(20.0f));
     g.setColour(Theme::textLight.withAlpha(0.8f));
     g.drawText(player.getCurrentPartName(), partArea, juce::Justification::centred);
 
     // ─── Beat indicators ───────────────────────────────────
-    int beatAreaY = 170;
-    int dotSize = 30;
-    int totalDotsWidth = beatsPerBar * dotSize + (beatsPerBar - 1) * 12;
+    int beatAreaY = 190;
+    int dotSize = 34;
+    int totalDotsWidth = beatsPerBar * dotSize + (beatsPerBar - 1) * 14;
     int startX = (getWidth() - totalDotsWidth) / 2;
 
     for (int i = 0; i < beatsPerBar; i++) {
-        int x = startX + i * (dotSize + 12);
+        int x = startX + i * (dotSize + 14);
         bool isActive = playing && (i == currentBeat);
 
         if (isActive) {
-            // Glow effect
             g.setColour(Theme::beatOn.withAlpha(0.3f));
             g.fillEllipse((float)(x - 5), (float)(beatAreaY - 5),
                           (float)(dotSize + 10), (float)(dotSize + 10));
@@ -119,9 +142,8 @@ void DoopaBeatsEditor::paint(juce::Graphics& g) {
         g.setColour(isActive ? Theme::beatOn : Theme::beatOff);
         g.fillEllipse((float)x, (float)beatAreaY, (float)dotSize, (float)dotSize);
 
-        // Beat number
         g.setColour(isActive ? juce::Colours::black : Theme::textLight.withAlpha(0.4f));
-        g.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        g.setFont(juce::FontOptions(15.0f, juce::Font::bold));
         g.drawText(juce::String(i + 1),
                    x, beatAreaY, dotSize, dotSize,
                    juce::Justification::centred);
@@ -129,34 +151,42 @@ void DoopaBeatsEditor::paint(juce::Graphics& g) {
 }
 
 void DoopaBeatsEditor::resized() {
-    auto bounds = getLocalBounds().reduced(20);
+    auto bounds = getLocalBounds().reduced(24);
 
-    // Song selector at top
+    // Title area (50px) is drawn in paint
     auto topArea = bounds.removeFromTop(50);
-    topArea.removeFromTop(10); // padding after title area handled by paint
-    songSelector.setBounds(topArea.removeFromTop(30));
 
-    bounds.removeFromTop(140); // space for part name + beat indicators
+    // KIT button in top-right corner
+    kitButton.setBounds(topArea.removeFromRight(60).withHeight(30).withY(topArea.getY() + 10));
 
-    // Tempo area
-    auto tempoArea = bounds.removeFromTop(60);
-    tempoLabel.setBounds(tempoArea.removeFromTop(25));
-    tempoSlider.setBounds(tempoArea);
+    // Song selector
+    topArea.removeFromTop(10);
+    songSelector.setBounds(topArea.removeFromTop(32).withTrimmedRight(8));
 
-    bounds.removeFromTop(20);
+    if (showingKitView) {
+        bounds.removeFromTop(8);
+        kitEditor.setBounds(bounds);
+    } else {
+        bounds.removeFromTop(150); // space for part name + beat indicators
 
-    // Buttons
-    int buttonHeight = 70;
-    int buttonSpacing = 12;
+        // Tempo area
+        auto tempoArea = bounds.removeFromTop(65);
+        tempoLabel.setBounds(tempoArea.removeFromTop(28));
+        tempoSlider.setBounds(tempoArea);
 
-    // TAP button — big
-    tapButton.setBounds(bounds.removeFromTop(buttonHeight));
-    bounds.removeFromTop(buttonSpacing);
+        bounds.removeFromTop(30);
 
-    // Transition and Stop side by side
-    auto bottomRow = bounds.removeFromTop(buttonHeight);
-    int halfWidth = (bottomRow.getWidth() - buttonSpacing) / 2;
-    transButton.setBounds(bottomRow.removeFromLeft(halfWidth));
-    bottomRow.removeFromLeft(buttonSpacing);
-    stopButton.setBounds(bottomRow);
+        // Buttons
+        int buttonHeight = 80;
+        int buttonSpacing = 14;
+
+        tapButton.setBounds(bounds.removeFromTop(buttonHeight));
+        bounds.removeFromTop(buttonSpacing);
+
+        auto bottomRow = bounds.removeFromTop(buttonHeight);
+        int halfWidth = (bottomRow.getWidth() - buttonSpacing) / 2;
+        transButton.setBounds(bottomRow.removeFromLeft(halfWidth));
+        bottomRow.removeFromLeft(buttonSpacing);
+        stopButton.setBounds(bottomRow);
+    }
 }

@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <initializer_list>
 #include <utility>
+#include "MidiNoteMap.h"
 
 enum class DrumType : int {
     Kick = 0,
@@ -34,10 +35,25 @@ inline const char* drumTypeName(DrumType d) {
     }
 }
 
+inline constexpr int drumTypeToMidiNote(DrumType d) {
+    switch (d) {
+        case DrumType::Kick:     return GM::Kick;
+        case DrumType::Snare:    return GM::Snare;
+        case DrumType::ClosedHH: return GM::ClosedHH;
+        case DrumType::OpenHH:   return GM::OpenHH;
+        case DrumType::Clap:     return GM::Clap;
+        case DrumType::LowTom:   return GM::LowTom;
+        case DrumType::Rimshot:  return GM::SideStick;
+        case DrumType::Ride:     return GM::Ride1;
+        default:                 return GM::Kick;
+    }
+}
+
 struct Hit {
     int step;
     DrumType drum;
     float velocity;
+    int midiNote = 0;  // populated by makePattern()
 };
 
 struct Pattern {
@@ -78,7 +94,7 @@ inline Pattern makePattern(const std::string& name, int beatsPerBar, int stepsPe
             else if (steps[i] == 'x') vel = 0.6f;
             else if (steps[i] == 'o') vel = 0.3f;
             if (vel > 0.0f)
-                p.hits.push_back({i, drum, vel});
+                p.hits.push_back({i, drum, vel, drumTypeToMidiNote(drum)});
         }
     }
     return p;

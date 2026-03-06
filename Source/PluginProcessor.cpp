@@ -8,11 +8,23 @@ DoopaBeatsProcessor::DoopaBeatsProcessor()
     songs = BuiltInSongs::getAllSongs();
     if (!songs.empty())
         songPlayer.loadSong(songs[0]);
+
+    refreshAvailableKits();
 }
 
 void DoopaBeatsProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
+    lastSampleRate = sampleRate;
     drumEngine.prepare(sampleRate, samplesPerBlock);
     songPlayer.prepare(sampleRate);
+
+    // If using a user kit, reload samples at new sample rate
+    if (!usingBuiltIn) {
+        auto kitFile = DrumKit::getKitsDirectory().getChildFile(currentKitName + ".doopakit");
+        if (kitFile.existsAsFile()) {
+            currentKit.loadFromFile(kitFile, sampleRate);
+            drumEngine.loadKit(currentKit);
+        }
+    }
 }
 
 void DoopaBeatsProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) {
@@ -34,6 +46,63 @@ void DoopaBeatsProcessor::loadSong(int index) {
         currentSongIndex = index;
         songPlayer.loadSong(songs[index]);
     }
+}
+
+void DoopaBeatsProcessor::loadDrumKit(const juce::String& kitName) {
+    auto kitFile = DrumKit::getKitsDirectory().getChildFile(kitName + ".doopakit");
+    if (!kitFile.existsAsFile()) return;
+
+    if (currentKit.loadFromFile(kitFile, lastSampleRate)) {
+        currentKitName = kitName;
+        usingBuiltIn = false;
+        drumEngine.loadKit(currentKit);
+    }
+}
+
+void DoopaBeatsProcessor::loadBuiltInKit() {
+    currentKitName = "Built-In";
+    usingBuiltIn = true;
+    drumEngine.loadBuiltInKit();
+}
+
+void DoopaBeatsProcessor::refreshAvailableKits() {
+    availableKitNames.clear();
+    for (auto& f : DrumKit::findAllKitFiles())
+        availableKitNames.add(f.getFileNameWithoutExtension());
+}
+
+juce::StringArray DoopaBeatsProcessor::getAvailableKits() const {
+    return availableKitNames;
+}
+
+void DoopaBeatsProcessor::getStateInformation(juce::MemoryBlock& destData) {
+    juce::ValueTree state("DoopaBeatsState");
+    state.setProperty("kitName", currentKitName, nullptr);
+    state.setProperty("usingBuiltIn", usingBuiltIn, nullptr);
+    state.setProperty("songIndex", currentSongIndex, nullptr);
+
+    auto xml = state.createXml();
+    if (xml)
+        copyXmlToBinary(*xml, destData);
+}
+
+void DoopaBeatsProcessor::setStateInformation(const void* data, int sizeInBytes) {
+    auto xml = getXmlFromBinary(data, sizeInBytes);
+    if (!xml) return;
+
+    auto state = juce::ValueTree::fromXml(*xml);
+    if (!state.isValid()) return;
+
+    int songIdx = state.getProperty("songIndex", 0);
+    loadSong(songIdx);
+
+    bool builtIn = state.getProperty("usingBuiltIn", true);
+    juce::String kitN = state.getProperty("kitName", "Built-In").toString();
+
+    if (builtIn)
+        loadBuiltInKit();
+    else
+        loadDrumKit(kitN);
 }
 
 juce::AudioProcessorEditor* DoopaBeatsProcessor::createEditor() {
