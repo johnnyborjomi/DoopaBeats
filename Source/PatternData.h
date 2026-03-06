@@ -104,14 +104,14 @@ inline Song basicRock() {
     s.mainLoops.push_back(makePattern("Verse", 4, 4, {
         {DrumType::Kick,     "X.......X......." "X.......X......."},
         {DrumType::Snare,    "....X.......X..." "....X.......X..."},
-        {DrumType::ClosedHH, "X.x.X.x.X.x.X.x." "X.x.X.x.X.x.X.x."},
+        {DrumType::ClosedHH, "X.x.X.x.X.x.X.x" "X.x.X.x.X.x.X.x"},
     }));
 
     // Main 2 — more drive
     s.mainLoops.push_back(makePattern("Chorus", 4, 4, {
         {DrumType::Kick,     "X..X..X.X......." "X..X..X.X......."},
         {DrumType::Snare,    "....X.......X..." "....X.......X..X"},
-        {DrumType::ClosedHH, "X.X.X.X.X.X.X.X." "X.X.X.X.X.X.X.X."},
+        {DrumType::ClosedHH, "X.X.X.X.X.X.X.X" "X.X.X.X.X.X.X.X"},
     }));
 
     // Fills (one per main loop)
@@ -162,7 +162,7 @@ inline Song popRock() {
     s.mainLoops.push_back(makePattern("Chorus", 4, 4, {
         {DrumType::Kick,     "X.X...X.X......." "X.X...X.X..X...."},
         {DrumType::Snare,    "....X.......X..." "....X.......X..."},
-        {DrumType::Ride,     "X.x.X.x.X.x.X.x." "X.x.X.x.X.x.X.x."},
+        {DrumType::Ride,     "X.x.X.x.X.x.X.x" "X.x.X.x.X.x.X.x"},
     }));
 
     s.fills.push_back(makePattern("Fill 1", 4, 4, {

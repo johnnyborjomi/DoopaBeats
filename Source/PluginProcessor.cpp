@@ -19,6 +19,14 @@ void DoopaBeatsProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::M
     buffer.clear();
     songPlayer.process(buffer.getNumSamples(), drumEngine);
     drumEngine.renderBlock(buffer);
+
+    // Soft-clip to prevent digital distortion from summed voices
+    for (int ch = 0; ch < buffer.getNumChannels(); ch++) {
+        auto* data = buffer.getWritePointer(ch);
+        for (int i = 0; i < buffer.getNumSamples(); i++) {
+            data[i] = std::tanh(data[i] * 0.7f);
+        }
+    }
 }
 
 void DoopaBeatsProcessor::loadSong(int index) {

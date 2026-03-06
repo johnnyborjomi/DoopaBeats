@@ -51,6 +51,7 @@ private:
     bool stopRequested = false;
 
     void startPattern(const Pattern* pattern, State newState);
+    void startFromStopped(const Pattern* pattern, State newState);
     void handlePatternEnd();
     void triggerHitsAtStep(int step, DrumEngine& engine, int sampleOffset);
     double samplesPerStep() const;

@@ -30,7 +30,8 @@ double SongPlayer::samplesPerStep() const {
 
 int SongPlayer::getCurrentBeat() const {
     if (!currentPattern || currentPattern->stepsPerBeat == 0) return 0;
-    return currentStep / currentPattern->stepsPerBeat;
+    int beat = currentStep / currentPattern->stepsPerBeat;
+    return beat % currentPattern->beatsPerBar;
 }
 
 int SongPlayer::getBeatsPerBar() const {
@@ -55,9 +56,9 @@ void SongPlayer::primaryAction() {
     if (state == State::Stopped) {
         currentPartIndex = 0;
         if (currentSong.hasIntro && currentSong.intro.numSteps > 0) {
-            startPattern(&currentSong.intro, State::PlayingIntro);
+            startFromStopped(&currentSong.intro, State::PlayingIntro);
         } else if (!currentSong.mainLoops.empty()) {
-            startPattern(&currentSong.mainLoops[0], State::PlayingMain);
+            startFromStopped(&currentSong.mainLoops[0], State::PlayingMain);
         }
     } else {
         fillRequested = true;
@@ -83,8 +84,15 @@ void SongPlayer::startPattern(const Pattern* pattern, State newState) {
     currentPattern = pattern;
     state = newState;
     currentStep = 0;
+    // Don't reset sampleCounter/nextStepTime here — timing must be
+    // continuous across pattern transitions to avoid an avalanche of
+    // triggers in a single block.
+}
+
+void SongPlayer::startFromStopped(const Pattern* pattern, State newState) {
     sampleCounter = 0.0;
-    nextStepTime = 0.0;  // trigger first step immediately
+    nextStepTime = 0.0;
+    startPattern(pattern, newState);
 }
 
 void SongPlayer::triggerHitsAtStep(int step, DrumEngine& engine, int sampleOffset) {
@@ -123,6 +131,20 @@ void SongPlayer::process(int numSamples, DrumEngine& engine) {
 }
 
 void SongPlayer::handlePatternEnd() {
+    // Check stop request in any playing state (not just PlayingMain)
+    if (stopRequested && state != State::PlayingOutro && state != State::Stopped) {
+        stopRequested = false;
+        fillRequested = false;
+        transitionRequested = false;
+        if (currentSong.hasOutro && currentSong.outro.numSteps > 0)
+            startPattern(&currentSong.outro, State::PlayingOutro);
+        else {
+            state = State::Stopped;
+            currentPattern = nullptr;
+        }
+        return;
+    }
+
     switch (state) {
         case State::PlayingIntro:
             if (!currentSong.mainLoops.empty())
@@ -132,20 +154,13 @@ void SongPlayer::handlePatternEnd() {
             break;
 
         case State::PlayingMain:
-            // Check queued actions at pattern boundary
-            if (stopRequested) {
-                stopRequested = false;
-                fillRequested = false;
-                transitionRequested = false;
-                startPattern(&currentSong.outro, State::PlayingOutro);
-            } else if (transitionRequested) {
+            if (transitionRequested) {
                 transitionRequested = false;
                 fillRequested = false;
                 int ti = std::min(currentPartIndex, (int)currentSong.transitions.size() - 1);
                 if (ti >= 0)
                     startPattern(&currentSong.transitions[ti], State::PlayingTransition);
                 else {
-                    // No transition pattern — just go to next part
                     currentPartIndex = (currentPartIndex + 1) % (int)currentSong.mainLoops.size();
                     startPattern(&currentSong.mainLoops[currentPartIndex], State::PlayingMain);
                 }
@@ -155,9 +170,8 @@ void SongPlayer::handlePatternEnd() {
                 if (fi >= 0)
                     startPattern(&currentSong.fills[fi], State::PlayingFill);
                 else
-                    startPattern(&currentSong.mainLoops[currentPartIndex], State::PlayingMain); // loop
+                    startPattern(&currentSong.mainLoops[currentPartIndex], State::PlayingMain);
             } else {
-                // Loop current main
                 startPattern(&currentSong.mainLoops[currentPartIndex], State::PlayingMain);
             }
             break;
